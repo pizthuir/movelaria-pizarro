@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Sobra ID {{sobra.id}}</h1>
+
+<p>{{sobra.largura}} x {{sobra.altura}}</p>
+<p>{{sobra.espessura}}mm</p>
+<p>Cor: {{sobra.cor}}</p>
+<p>{{sobra.obs}}</p>
+
+<h2>Status: {{sobra.usado}}</h2>
+
+<img src="/static/qrcodes/qr_{{sobra.id}}.png" width="200">
+
+<a href="/usar/{{sobra.id}}">Marcar como usado</a>
+
+{% endblock %}

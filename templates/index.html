@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>Cadastro</h2>
+
+<form method="POST">
+    <input name="largura" placeholder="Largura" required>
+    <input name="altura" placeholder="Altura" required>
+    <input name="espessura" placeholder="Espessura" required>
+    <input name="cor" placeholder="Cor" required>
+    <input name="obs" placeholder="Observação">
+    <button type="submit">Salvar</button>
+</form>
+
+<h2>Sobras</h2>
+
+<div class="grid">
+{% for item in dados %}
+<div class="card">
+
+<b>ID {{item.id}}</b><br>
+
+{{item.largura}} x {{item.altura}}<br>
+{{item.espessura}}mm<br>
+Cor: {{item.cor}}<br>
+
+{% if item.usado == "SIM" %}
+    <span class="usado">USADO</span><br>
+{% else %}
+    <span class="disponivel">DISPONÍVEL</span><br>
+{% endif %}
+
+<a href="/sobra/{{item.id}}">QR</a><br>
+
+<a href="/usar/{{item.id}}">Usar</a> |
+<a href="/reset/{{item.id}}">Resetar</a>
+
+</div>
+{% endfor %}
+</div>
+
+{% endblock %}
