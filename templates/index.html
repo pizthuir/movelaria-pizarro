@@ -1,55 +1,60 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Pizarro</title>
+    <title>Pizarro System</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
 <header>
-    Movelaria Pizarro
+    Pizarro System
 </header>
 
 <div class="container">
 
     <!-- FORM -->
     <div class="card">
-        <h3>Nova Sobra</h3>
+        <h3>Registrar Sobra</h3>
         <form method="POST">
             <input name="largura" placeholder="Largura (mm)">
             <input name="altura" placeholder="Altura (mm)">
             <input name="espessura" placeholder="Espessura">
             <input name="cor" placeholder="Cor">
             <input name="obs" placeholder="Observação">
-            <button type="submit">Cadastrar</button>
+            <button type="submit">Adicionar</button>
         </form>
     </div>
 
     <!-- LISTA -->
-    <h3>Sobras</h3>
+    <h3 style="color:#ffd700;">Estoque Inteligente</h3>
 
     {% for item in dados %}
     <div class="card">
 
-        <strong>ID {{item.id}}</strong><br>
+        <div class="row">
+            <span>ID {{item.id}}</span>
+            <span class="valor">
+                {{item.largura}}x{{item.altura}}
+            </span>
+        </div>
 
-        {{item.largura}} x {{item.altura}}<br>
-        Cor: {{item.cor}}<br>
+        <div class="row">
+            <span>Cor:</span>
+            <span>{{item.cor}}</span>
+        </div>
 
         {% if item.usado == "NÃO" %}
-            <span class="status disponivel">Disponível</span>
+            <div class="status disponivel">▲ Disponível</div>
         {% else %}
-            <span class="status usado">Usado por {{item.usado}}</span>
+            <div class="status usado">▼ Usado por {{item.usado}}</div>
         {% endif %}
-
-        <br>
 
         <img class="qr" src="/static/qrcodes/qr_{{item.id}}.png">
 
         {% if item.usado == "NÃO" %}
         <a href="/usar/{{item.id}}">
-            <button>Usar peça</button>
+            <button>Utilizar Peça</button>
         </a>
         {% endif %}
 

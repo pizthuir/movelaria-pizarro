@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session
 import pandas as pd
 import os
 import qrcode
+import matplotlib.pyplot as plt
 
 app = Flask(__name__)
 app.secret_key = "pizarro123"
@@ -148,39 +149,59 @@ def usar(id):
 
     df = load_data()
 
-    # agora salva quem usou
     df.loc[df["id"] == id, "usado"] = session["user"]
 
     save_data(df)
     return redirect("/")
 
 # =========================
-# DASHBOARD (ECONOMIA)
+# DASHBOARD COMPLETO
 # =========================
 @app.route("/dashboard")
 def dashboard():
     df = load_data()
 
-    usados = df[df["usado"] != "NÃO"]
+    total = len(df)
+    usados_df = df[df["usado"] != "NÃO"]
 
-    # 💰 cálculo de economia
-    preco_mdf_m2 = 100  # você pode alterar depois
+    usados = len(usados_df)
+    disponiveis = total - usados
+
+    # 💰 economia
+    preco_mdf_m2 = 100
     economia = 0
 
-    for _, row in usados.iterrows():
+    for _, row in usados_df.iterrows():
         try:
             largura = float(row["largura"])
             altura = float(row["altura"])
-
             area = (largura * altura) / 1000000
             economia += area * preco_mdf_m2
         except:
             pass
 
+    # 📊 porcentagem
+    porcentagem = (usados / total * 100) if total > 0 else 0
+
+    # 👷 ranking
+    ranking = usados_df["usado"].value_counts().to_dict()
+
+    # 📈 gráfico
+    labels = ["Usados", "Disponíveis"]
+    valores = [usados, disponiveis]
+
+    plt.figure()
+    plt.bar(labels, valores)
+    plt.savefig("static/grafico.png")
+    plt.close()
+
     return render_template(
         "dashboard.html",
-        usados=len(usados),
-        economia=round(economia, 2)
+        usados=usados,
+        disponiveis=disponiveis,
+        economia=round(economia, 2),
+        porcentagem=round(porcentagem, 1),
+        ranking=ranking
     )
 
 # =========================
