@@ -1,7 +1,2 @@
 flask
-pandas
-openpyxl
-qrcode
-pillow
-matplotlib
-gunicorn
+qrcode[pil]

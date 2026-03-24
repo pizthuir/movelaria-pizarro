@@ -1,8 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session
-import pandas as pd
 import os
+import sqlite3
 import qrcode
-import matplotlib.pyplot as plt
 
 app = Flask(__name__)
 app.secret_key = "pizarro123"
@@ -10,198 +9,245 @@ app.secret_key = "pizarro123"
 # =========================
 # CONFIG
 # =========================
-EXCEL_FILE = "sobras.xlsx"
-USERS_FILE = "usuarios.xlsx"
+
+# RAILWAY: vá em seu projeto → Add Volume → Mount Path: /data
+# Isso garante que o banco de dados persiste entre deploys e reinicializações.
+DATA_DIR  = os.environ.get("DATA_DIR", "/data")
+DB_PATH   = os.path.join(DATA_DIR, "pizarro.db")
 QR_FOLDER = "static/qrcodes"
 
-BASE_URL = "https://movelaria-pizarro-production.up.railway.app"
+BASE_URL = os.environ.get(
+    "BASE_URL",
+    "https://movelaria-pizarro-production.up.railway.app"
+).rstrip("/")
 
+os.makedirs(DATA_DIR,  exist_ok=True)
 os.makedirs(QR_FOLDER, exist_ok=True)
 
 # =========================
-# CRIAR ARQUIVOS
+# BANCO DE DADOS
 # =========================
-if not os.path.exists(EXCEL_FILE):
-    df = pd.DataFrame(columns=[
-        "id", "largura", "altura", "espessura",
-        "cor", "obs", "usado"
-    ])
-    df.to_excel(EXCEL_FILE, index=False)
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-if not os.path.exists(USERS_FILE):
-    df_users = pd.DataFrame(columns=["user", "senha"])
-    df_users.to_excel(USERS_FILE, index=False)
+def init_db():
+    with get_db() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sobras (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                largura   TEXT NOT NULL,
+                altura    TEXT NOT NULL,
+                espessura TEXT,
+                cor       TEXT,
+                obs       TEXT,
+                usado     TEXT NOT NULL DEFAULT 'NÃO'
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id    INTEGER PRIMARY KEY AUTOINCREMENT,
+                user  TEXT UNIQUE NOT NULL,
+                senha TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+
+init_db()
 
 # =========================
-# FUNÇÕES
+# HELPERS QR
 # =========================
-def load_data():
-    return pd.read_excel(EXCEL_FILE)
+def gerar_qr(item_id):
+    url = f"{BASE_URL}/sobra/{item_id}"
+    qr = qrcode.make(url)
+    qr.save(f"{QR_FOLDER}/qr_{item_id}.png")
 
-def save_data(df):
-    df.to_excel(EXCEL_FILE, index=False)
+def regenerar_todos_qrs():
+    """Regenera QR codes ausentes ao iniciar o servidor."""
+    try:
+        with get_db() as conn:
+            rows = conn.execute("SELECT id FROM sobras").fetchall()
+        for row in rows:
+            qr_path = f"{QR_FOLDER}/qr_{row['id']}.png"
+            if not os.path.exists(qr_path):
+                gerar_qr(row["id"])
+    except Exception:
+        pass
 
-def load_users():
-    return pd.read_excel(USERS_FILE)
-
-def save_users(df):
-    df.to_excel(USERS_FILE, index=False)
+regenerar_todos_qrs()
 
 # =========================
 # LOGIN
 # =========================
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    if "user" in session:
+        return redirect(url_for("index"))
+
+    erro = None
     if request.method == "POST":
-        user = request.form["user"].strip()
-        senha = request.form["senha"].strip()
+        user  = request.form.get("user",  "").strip()
+        senha = request.form.get("senha", "").strip()
 
-        df_users = load_users()
-        df_users["user"] = df_users["user"].astype(str).str.strip()
-        df_users["senha"] = df_users["senha"].astype(str).str.strip()
+        with get_db() as conn:
+            row = conn.execute(
+                "SELECT * FROM usuarios WHERE user = ? AND senha = ?",
+                (user, senha)
+            ).fetchone()
 
-        usuario = df_users[
-            (df_users["user"] == user) & (df_users["senha"] == senha)
-        ]
-
-        if not usuario.empty:
+        if row:
             session["user"] = user
             return redirect(url_for("index"))
         else:
-            return "Login inválido"
+            erro = "Usuário ou senha incorretos."
 
-    return render_template("login.html")
+    return render_template("login.html", erro=erro)
 
 # =========================
 # CADASTRO
 # =========================
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    erro = None
     if request.method == "POST":
-        user = request.form["user"].strip()
-        senha = request.form["senha"].strip()
+        user   = request.form.get("user",   "").strip()
+        senha  = request.form.get("senha",  "").strip()
+        senha2 = request.form.get("senha2", "").strip()
 
-        df_users = load_users()
-        df_users["user"] = df_users["user"].astype(str).str.strip()
+        if not user or not senha:
+            erro = "Preencha todos os campos."
+        elif senha != senha2:
+            erro = "As senhas não coincidem."
+        else:
+            try:
+                with get_db() as conn:
+                    conn.execute(
+                        "INSERT INTO usuarios (user, senha) VALUES (?, ?)",
+                        (user, senha)
+                    )
+                    conn.commit()
+                return redirect(url_for("login"))
+            except sqlite3.IntegrityError:
+                erro = "Este usuário já existe. Escolha outro."
 
-        if user in df_users["user"].values:
-            return "Usuário já existe!"
-
-        new_user = {"user": user, "senha": senha}
-        df_users = pd.concat([df_users, pd.DataFrame([new_user])], ignore_index=True)
-        save_users(df_users)
-
-        return redirect(url_for("login"))
-
-    return render_template("register.html")
+    return render_template("register.html", erro=erro)
 
 # =========================
-# HOME
+# HOME — ESTOQUE
 # =========================
 @app.route("/", methods=["GET", "POST"])
 def index():
     if "user" not in session:
-        return redirect("/login")
-
-    df = load_data()
+        return redirect(url_for("login"))
 
     if request.method == "POST":
-        new_id = len(df) + 1
+        largura   = request.form.get("largura",   "").strip()
+        altura    = request.form.get("altura",    "").strip()
+        espessura = request.form.get("espessura", "").strip()
+        cor       = request.form.get("cor",       "").strip()
+        obs       = request.form.get("obs",       "").strip()
 
-        new_row = {
-            "id": new_id,
-            "largura": request.form["largura"],
-            "altura": request.form["altura"],
-            "espessura": request.form["espessura"],
-            "cor": request.form["cor"],
-            "obs": request.form["obs"],
-            "usado": "NÃO"
-        }
+        if largura and altura:
+            with get_db() as conn:
+                cursor = conn.execute(
+                    """INSERT INTO sobras (largura, altura, espessura, cor, obs, usado)
+                       VALUES (?, ?, ?, ?, ?, 'NÃO')""",
+                    (largura, altura, espessura, cor, obs)
+                )
+                conn.commit()
+                new_id = cursor.lastrowid
 
-        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-        save_data(df)
-
-        # QR CODE ONLINE
-        url = f"{BASE_URL}/sobra/{new_id}"
-        qr = qrcode.make(url)
-        qr.save(f"{QR_FOLDER}/qr_{new_id}.png")
+            gerar_qr(new_id)
 
         return redirect(url_for("index"))
 
-    return render_template("index.html", dados=df.to_dict(orient="records"))
+    with get_db() as conn:
+        rows = conn.execute("SELECT * FROM sobras ORDER BY id DESC").fetchall()
+
+    dados = [dict(row) for row in rows]
+    return render_template("index.html", dados=dados, user=session["user"])
 
 # =========================
-# DETALHE (QR)
+# DETALHE (via QR Code)
 # =========================
 @app.route("/sobra/<int:id>")
 def detalhe(id):
-    df = load_data()
-    sobra = df[df["id"] == id].iloc[0]
-    return render_template("detalhe.html", sobra=sobra)
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM sobras WHERE id = ?", (id,)).fetchone()
+
+    if not row:
+        return "Peça não encontrada.", 404
+
+    return render_template("detalhe.html", sobra=dict(row))
 
 # =========================
-# USAR (FUNCIONÁRIO)
+# USAR PEÇA
 # =========================
 @app.route("/usar/<int:id>")
 def usar(id):
     if "user" not in session:
-        return redirect("/login")
+        return redirect(url_for("login"))
 
-    df = load_data()
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM sobras WHERE id = ?", (id,)).fetchone()
 
-    df.loc[df["id"] == id, "usado"] = session["user"]
+        if not row:
+            return "Peça não encontrada.", 404
 
-    save_data(df)
-    return redirect("/")
+        if row["usado"] == "NÃO":
+            conn.execute(
+                "UPDATE sobras SET usado = ? WHERE id = ?",
+                (session["user"], id)
+            )
+            conn.commit()
+
+    return redirect(url_for("index"))
 
 # =========================
-# DASHBOARD COMPLETO
+# DASHBOARD
 # =========================
 @app.route("/dashboard")
 def dashboard():
-    df = load_data()
+    if "user" not in session:
+        return redirect(url_for("login"))
 
-    total = len(df)
-    usados_df = df[df["usado"] != "NÃO"]
+    with get_db() as conn:
+        total       = conn.execute("SELECT COUNT(*) FROM sobras").fetchone()[0]
+        usados      = conn.execute("SELECT COUNT(*) FROM sobras WHERE usado != 'NÃO'").fetchone()[0]
+        disponiveis = total - usados
 
-    usados = len(usados_df)
-    disponiveis = total - usados
+        usados_rows = conn.execute(
+            "SELECT largura, altura, usado FROM sobras WHERE usado != 'NÃO'"
+        ).fetchall()
 
-    # 💰 economia
-    preco_mdf_m2 = 100
-    economia = 0
+        ranking_rows = conn.execute(
+            """SELECT usado, COUNT(*) as total FROM sobras
+               WHERE usado != 'NÃO'
+               GROUP BY usado ORDER BY total DESC"""
+        ).fetchall()
 
-    for _, row in usados_df.iterrows():
+    PRECO_M2 = 100
+    economia = 0.0
+    for row in usados_rows:
         try:
-            largura = float(row["largura"])
-            altura = float(row["altura"])
-            area = (largura * altura) / 1000000
-            economia += area * preco_mdf_m2
-        except:
+            area = (float(row["largura"]) * float(row["altura"])) / 1_000_000
+            economia += area * PRECO_M2
+        except (ValueError, TypeError):
             pass
 
-    # 📊 porcentagem
-    porcentagem = (usados / total * 100) if total > 0 else 0
-
-    # 👷 ranking
-    ranking = usados_df["usado"].value_counts().to_dict()
-
-    # 📈 gráfico
-    labels = ["Usados", "Disponíveis"]
-    valores = [usados, disponiveis]
-
-    plt.figure()
-    plt.bar(labels, valores)
-    plt.savefig("static/grafico.png")
-    plt.close()
+    porcentagem = round(usados / total * 100, 1) if total > 0 else 0
+    ranking = {row["usado"]: row["total"] for row in ranking_rows}
 
     return render_template(
         "dashboard.html",
         usados=usados,
         disponiveis=disponiveis,
         economia=round(economia, 2),
-        porcentagem=round(porcentagem, 1),
-        ranking=ranking
+        porcentagem=porcentagem,
+        ranking=ranking,
+        user=session["user"]
     )
 
 # =========================
@@ -210,10 +256,10 @@ def dashboard():
 @app.route("/logout")
 def logout():
     session.pop("user", None)
-    return redirect("/login")
+    return redirect(url_for("login"))
 
 # =========================
-# RUN (RAILWAY)
+# RUN
 # =========================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

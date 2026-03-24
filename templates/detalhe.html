@@ -1,18 +1,307 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Peça #{{ sobra.id }} — Pizarro Movelaria</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-{% block content %}
+    :root {
+      --cream:   #F5F0E8;
+      --dark:    #1E1410;
+      --accent:  #C4864A;
+      --accent2: #d4935a;
+      --light:   #D4C4B0;
+      --white:   #FDFAF5;
+      --success: #6aab7e;
+      --used:    #8a6a5a;
+      --border:  rgba(196,134,74,.2);
+      --card-bg: rgba(255,255,255,.04);
+    }
 
-<h1>Sobra ID {{sobra.id}}</h1>
+    html, body {
+      min-height: 100%;
+      font-family: 'DM Sans', sans-serif;
+      background: var(--dark);
+      color: var(--cream);
+    }
 
-<p>{{sobra.largura}} x {{sobra.altura}}</p>
-<p>{{sobra.espessura}}mm</p>
-<p>Cor: {{sobra.cor}}</p>
-<p>{{sobra.obs}}</p>
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 50% 60% at 70% 20%, #3a200e44 0%, transparent 70%),
+        radial-gradient(ellipse 40% 50% at 20% 80%, #2a160844 0%, transparent 60%);
+      pointer-events: none;
+    }
 
-<h2>Status: {{sobra.usado}}</h2>
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: repeating-linear-gradient(91deg, transparent 0, transparent 22px, rgba(139,94,60,.05) 22px, rgba(139,94,60,.05) 23px);
+      pointer-events: none;
+    }
 
-<img src="/static/qrcodes/qr_{{sobra.id}}.png" width="200">
+    /* HEADER */
+    header {
+      position: relative; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.2rem 2rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(30,20,16,.8);
+      backdrop-filter: blur(8px);
+    }
 
-<a href="/usar/{{sobra.id}}">Marcar como usado</a>
+    .brand { font-family: 'Playfair Display', serif; font-size: 1.2rem; color: var(--white); }
+    .brand span { color: var(--accent); }
 
-{% endblock %}
+    .back-link {
+      font-size: .78rem; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--light); text-decoration: none;
+      display: flex; align-items: center; gap: .4rem;
+      transition: color .2s;
+    }
+    .back-link:hover { color: var(--accent); }
+
+    /* MAIN */
+    main {
+      position: relative; z-index: 1;
+      min-height: calc(100vh - 64px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 3rem 1.5rem;
+    }
+
+    .detail-box {
+      width: 100%; max-width: 480px;
+      animation: fadeUp .6s ease both;
+    }
+
+    /* status hero */
+    .status-hero {
+      text-align: center;
+      padding: 2.5rem 2rem;
+      border-radius: 10px 10px 0 0;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .status-hero.disponivel { background: rgba(106,171,126,.08); }
+    .status-hero.utilizada  { background: rgba(138,106,90,.08); }
+
+    .status-hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: repeating-linear-gradient(135deg, transparent 0, transparent 10px, rgba(255,255,255,.015) 10px, rgba(255,255,255,.015) 11px);
+    }
+
+    .status-icon { font-size: 2.5rem; margin-bottom: .75rem; }
+
+    .status-label {
+      font-size: .72rem; letter-spacing: .2em; text-transform: uppercase;
+      margin-bottom: .4rem;
+    }
+
+    .disponivel .status-label { color: var(--success); }
+    .utilizada  .status-label { color: #b89080; }
+
+    .status-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem; color: var(--white);
+    }
+
+    /* card body */
+    .card-body {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+      padding: 2rem;
+    }
+
+    /* piece id */
+    .piece-id {
+      font-size: .68rem; letter-spacing: .2em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 1.5rem;
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .piece-id::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* dims */
+    .dims {
+      font-family: 'Playfair Display', serif;
+      font-size: 3rem; color: var(--white); line-height: 1;
+      margin-bottom: .5rem;
+    }
+
+    .dims-label {
+      font-size: .75rem; letter-spacing: .1em; color: var(--light);
+      opacity: .6; margin-bottom: 2rem;
+    }
+
+    /* info rows */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .75rem;
+      margin-bottom: 2rem;
+    }
+
+    .info-item {
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: .85rem 1rem;
+    }
+
+    .info-item .key {
+      font-size: .65rem; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--light); opacity: .6; margin-bottom: .3rem;
+    }
+
+    .info-item .val {
+      font-size: .95rem; color: var(--white); font-weight: 500;
+    }
+
+    /* color swatch */
+    .color-swatch {
+      display: inline-block;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--accent);
+      margin-right: .35rem; vertical-align: middle;
+    }
+
+    /* obs */
+    .obs-box {
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: .85rem 1rem;
+      margin-bottom: 2rem;
+      font-size: .88rem; color: var(--light); line-height: 1.6;
+    }
+
+    .obs-box .key { font-size: .65rem; letter-spacing: .12em; text-transform: uppercase; opacity: .6; display: block; margin-bottom: .3rem; }
+
+    /* QR */
+    .qr-section {
+      text-align: center;
+      padding: 1.5rem 0 0;
+      border-top: 1px solid var(--border);
+      margin-bottom: 1.5rem;
+    }
+
+    .qr-section p {
+      font-size: .68rem; letter-spacing: .15em; text-transform: uppercase;
+      color: var(--light); opacity: .5; margin-bottom: 1rem;
+    }
+
+    .qr-section img {
+      width: 120px; height: 120px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      filter: sepia(.25) brightness(.95);
+    }
+
+    /* action */
+    .btn-usar {
+      display: block; width: 100%;
+      padding: 1rem;
+      background: var(--accent); border: none; border-radius: 6px;
+      color: var(--dark);
+      font-family: 'DM Sans', sans-serif; font-size: .82rem; font-weight: 600;
+      letter-spacing: .13em; text-transform: uppercase;
+      text-align: center; text-decoration: none;
+      transition: background .2s, transform .15s, box-shadow .2s;
+    }
+    .btn-usar:hover { background: var(--accent2); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(196,134,74,.3); }
+
+    .used-notice {
+      text-align: center; padding: .9rem;
+      background: rgba(138,106,90,.1);
+      border: 1px solid rgba(138,106,90,.25);
+      border-radius: 6px;
+      font-size: .83rem; color: #b89080;
+    }
+
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 520px) {
+      .info-grid { grid-template-columns: 1fr; }
+      .dims { font-size: 2.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="brand">Pizarro <span>Movelaria</span></span>
+  <a href="/" class="back-link">← Voltar ao estoque</a>
+</header>
+
+<main>
+  <div class="detail-box">
+
+    <div class="status-hero {% if sobra.usado == 'NÃO' %}disponivel{% else %}utilizada{% endif %}">
+      {% if sobra.usado == "NÃO" %}
+        <div class="status-icon">✦</div>
+        <p class="status-label">Status</p>
+        <h1 class="status-title">Disponível</h1>
+      {% else %}
+        <div class="status-icon">✗</div>
+        <p class="status-label">Status</p>
+        <h1 class="status-title">Utilizada</h1>
+      {% endif %}
+    </div>
+
+    <div class="card-body">
+
+      <div class="piece-id">Peça #{{ sobra.id }}</div>
+
+      <div class="dims">{{ sobra.largura }} × {{ sobra.altura }}</div>
+      <div class="dims-label">Largura × Altura · em milímetros</div>
+
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="key">Espessura</div>
+          <div class="val">{{ sobra.espessura if sobra.espessura else '—' }}</div>
+        </div>
+        <div class="info-item">
+          <div class="key">Cor / Material</div>
+          <div class="val"><span class="color-swatch"></span>{{ sobra.cor if sobra.cor else '—' }}</div>
+        </div>
+        {% if sobra.usado != "NÃO" %}
+        <div class="info-item" style="grid-column: 1 / -1;">
+          <div class="key">Utilizada por</div>
+          <div class="val">{{ sobra.usado }}</div>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if sobra.obs %}
+      <div class="obs-box">
+        <span class="key">Observação</span>
+        {{ sobra.obs }}
+      </div>
+      {% endif %}
+
+      <div class="qr-section">
+        <p>QR Code desta peça</p>
+        <img src="/static/qrcodes/qr_{{ sobra.id }}.png" alt="QR Code peça #{{ sobra.id }}"/>
+      </div>
+
+      {% if sobra.usado == "NÃO" %}
+        <a href="/usar/{{ sobra.id }}" class="btn-usar">Marcar como Utilizada →</a>
+      {% else %}
+        <div class="used-notice">Esta peça já foi utilizada por <strong>{{ sobra.usado }}</strong></div>
+      {% endif %}
+
+    </div>
+  </div>
+</main>
+
+</body>
+</html>

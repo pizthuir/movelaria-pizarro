@@ -1,38 +1,474 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
-    <title>Dashboard</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/static/style.css">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Dashboard — Pizarro Movelaria</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream:   #F5F0E8;
+      --dark:    #1E1410;
+      --accent:  #C4864A;
+      --accent2: #d4935a;
+      --light:   #D4C4B0;
+      --white:   #FDFAF5;
+      --success: #6aab7e;
+      --used:    #8a6a5a;
+      --border:  rgba(196,134,74,.18);
+      --card-bg: rgba(255,255,255,.04);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--dark);
+      color: var(--cream);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 55% 60% at 90% 10%, #3a200e44 0%, transparent 70%),
+        radial-gradient(ellipse 40% 50% at 5% 90%, #2a160844 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    body::after {
+      content: ''; position: fixed; inset: 0;
+      background-image: repeating-linear-gradient(91deg, transparent 0, transparent 22px, rgba(139,94,60,.05) 22px, rgba(139,94,60,.05) 23px);
+      pointer-events: none;
+    }
+
+    .wrap { position: relative; z-index: 1; }
+
+    /* HEADER */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.4rem 3rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(30,20,16,.7);
+      backdrop-filter: blur(8px);
+      position: sticky; top: 0; z-index: 100;
+      animation: slideDown .6s ease both;
+    }
+
+    .header-brand { display: flex; align-items: baseline; gap: .7rem; }
+    .header-brand h1 { font-family: 'Playfair Display', serif; font-size: 1.45rem; color: var(--white); }
+    .header-brand h1 span { color: var(--accent); }
+    .header-brand small { font-size: .68rem; letter-spacing: .18em; text-transform: uppercase; color: var(--light); opacity: .7; }
+
+    .nav-links { display: flex; align-items: center; gap: 1.5rem; }
+
+    .nav-link {
+      font-size: .75rem; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--light); text-decoration: none;
+      transition: color .2s;
+    }
+    .nav-link:hover, .nav-link.active { color: var(--accent); }
+
+    .nav-link.logout {
+      border: 1px solid var(--border);
+      padding: .35rem .85rem; border-radius: 20px;
+    }
+    .nav-link.logout:hover { border-color: var(--accent); }
+
+    /* MAIN */
+    .main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2.5rem 3rem 4rem;
+    }
+
+    .page-header {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      margin-bottom: 2.5rem;
+      animation: fadeUp .6s .1s ease both;
+    }
+
+    .page-header h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.2rem; color: var(--white);
+    }
+
+    .page-header p { font-size: .82rem; color: var(--light); opacity: .7; margin-top: .25rem; }
+
+    .section-label {
+      font-size: .68rem; letter-spacing: .2em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 1rem;
+    }
+
+    /* KPI CARDS */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+      animation: fadeUp .6s .15s ease both;
+    }
+
+    .kpi-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      position: relative;
+      overflow: hidden;
+      transition: transform .2s, box-shadow .2s;
+    }
+
+    .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+
+    .kpi-card.total::before    { background: var(--accent); }
+    .kpi-card.disp::before     { background: var(--success); }
+    .kpi-card.usados::before   { background: var(--used); }
+    .kpi-card.economia::before { background: #7ab0d4; }
+
+    .kpi-icon { font-size: 1.2rem; margin-bottom: .75rem; opacity: .7; }
+
+    .kpi-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.4rem; color: var(--white); line-height: 1;
+      margin-bottom: .3rem;
+    }
+
+    .kpi-num.green  { color: var(--success); }
+    .kpi-num.brown  { color: #b89080; }
+    .kpi-num.blue   { color: #7ab0d4; }
+
+    .kpi-label { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--light); opacity: .6; }
+
+    /* PROGRESS BAR */
+    .progress-section {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.75rem;
+      margin-bottom: 2.5rem;
+      animation: fadeUp .6s .2s ease both;
+    }
+
+    .progress-header {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 1.25rem;
+    }
+
+    .progress-header h3 { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--white); }
+
+    .progress-pct {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.8rem; color: var(--accent);
+    }
+
+    .progress-bar-wrap {
+      height: 8px;
+      background: rgba(255,255,255,.07);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: .75rem;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 1s ease;
+    }
+
+    .progress-legend { display: flex; gap: 1.5rem; }
+
+    .legend-item { display: flex; align-items: center; gap: .4rem; font-size: .78rem; color: var(--light); opacity: .7; }
+
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .legend-dot.acc { background: var(--accent); }
+    .legend-dot.rem { background: rgba(255,255,255,.12); }
+
+    /* TWO COLUMN */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    /* RANKING */
+    .ranking-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.75rem;
+      animation: fadeUp .6s .25s ease both;
+    }
+
+    .ranking-card h3 { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--white); margin-bottom: 1.25rem; }
+
+    .rank-list { display: flex; flex-direction: column; gap: .65rem; }
+
+    .rank-item {
+      display: flex; align-items: center; gap: .85rem;
+    }
+
+    .rank-pos {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .65rem; color: var(--accent); flex-shrink: 0;
+    }
+
+    .rank-bar-wrap { flex: 1; height: 6px; background: rgba(255,255,255,.06); border-radius: 3px; overflow: hidden; }
+
+    .rank-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 1s ease; }
+
+    .rank-name { font-size: .85rem; color: var(--white); min-width: 80px; }
+
+    .rank-count { font-size: .82rem; color: var(--accent); font-weight: 600; margin-left: auto; flex-shrink: 0; }
+
+    /* CHART */
+    .chart-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.75rem;
+      animation: fadeUp .6s .3s ease both;
+    }
+
+    .chart-card h3 { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--white); margin-bottom: 1.25rem; }
+
+    .donut-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      padding: 1rem 0;
+    }
+
+    canvas#donut { max-width: 160px; }
+
+    .donut-legend { display: flex; flex-direction: column; gap: .75rem; }
+
+    .donut-legend-item { display: flex; align-items: center; gap: .6rem; font-size: .83rem; color: var(--light); }
+
+    .donut-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+    /* ECONOMIA INFO */
+    .eco-box {
+      background: rgba(122,176,212,.06);
+      border: 1px solid rgba(122,176,212,.2);
+      border-radius: 8px;
+      padding: 1.5rem 1.75rem;
+      display: flex; align-items: center; gap: 1.25rem;
+      animation: fadeUp .6s .35s ease both;
+    }
+
+    .eco-icon { font-size: 2rem; flex-shrink: 0; }
+
+    .eco-text h4 { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--white); margin-bottom: .3rem; }
+    .eco-text p { font-size: .83rem; color: var(--light); opacity: .7; line-height: 1.5; }
+
+    /* EMPTY RANKING */
+    .empty-rank { font-size: .85rem; color: var(--light); opacity: .5; text-align: center; padding: 2rem 0; }
+
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 900px) {
+      .main { padding: 1.5rem; }
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .two-col { grid-template-columns: 1fr; }
+      header { padding: 1rem 1.5rem; }
+    }
+
+    @media (max-width: 520px) {
+      .kpi-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
+<div class="wrap">
 
-<header>
-    Dashboard Inteligente
-</header>
+  <header>
+    <div class="header-brand">
+      <h1>Pizarro <span>Movelaria</span></h1>
+      <small>Dashboard</small>
+    </div>
+    <nav class="nav-links">
+      <a href="/" class="nav-link">Estoque</a>
+      <a href="/dashboard" class="nav-link active">Dashboard</a>
+      <a href="/logout" class="nav-link logout">Sair</a>
+    </nav>
+  </header>
 
-<div class="container">
+  <div class="main">
 
-    <div class="card">
-        <h3>Economia Total</h3>
-        <h2 style="color:#ffd700;">R$ {{economia}}</h2>
+    <div class="page-header">
+      <div>
+        <h2>Painel Gerencial</h2>
+        <p>Visão geral do aproveitamento de sobras</p>
+      </div>
     </div>
 
-    <div class="card">
-        <h3>Uso de Sobras</h3>
-        <p>{{usados}} usadas / {{disponiveis}} disponíveis</p>
-        <p>{{porcentagem}}% aproveitamento</p>
+    <!-- KPIs -->
+    <p class="section-label">Indicadores</p>
+    <div class="kpi-grid">
+      <div class="kpi-card total">
+        <div class="kpi-icon">▦</div>
+        <div class="kpi-num">{{ usados + disponiveis }}</div>
+        <div class="kpi-label">Total de Peças</div>
+      </div>
+      <div class="kpi-card disp">
+        <div class="kpi-icon">✦</div>
+        <div class="kpi-num green">{{ disponiveis }}</div>
+        <div class="kpi-label">Disponíveis</div>
+      </div>
+      <div class="kpi-card usados">
+        <div class="kpi-icon">✗</div>
+        <div class="kpi-num brown">{{ usados }}</div>
+        <div class="kpi-label">Utilizadas</div>
+      </div>
+      <div class="kpi-card economia">
+        <div class="kpi-icon">R$</div>
+        <div class="kpi-num blue">{{ economia }}</div>
+        <div class="kpi-label">Economia Estimada</div>
+      </div>
     </div>
 
-    <div class="card">
-        <h3>Ranking Funcionários</h3>
-
-        {% for nome, qtd in ranking.items() %}
-            <p>{{nome}} - {{qtd}} peças</p>
-        {% endfor %}
+    <!-- PROGRESS -->
+    <div class="progress-section">
+      <div class="progress-header">
+        <div>
+          <h3>Taxa de Aproveitamento</h3>
+          <p style="font-size:.8rem;color:var(--light);opacity:.6;margin-top:.2rem;">Porcentagem de peças já utilizadas</p>
+        </div>
+        <div class="progress-pct">{{ porcentagem }}%</div>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" style="width: {{ porcentagem }}%"></div>
+      </div>
+      <div class="progress-legend">
+        <div class="legend-item"><span class="legend-dot acc"></span> Utilizadas ({{ usados }})</div>
+        <div class="legend-item"><span class="legend-dot rem"></span> Disponíveis ({{ disponiveis }})</div>
+      </div>
     </div>
 
+    <!-- RANKING + DONUT -->
+    <p class="section-label">Análises</p>
+    <div class="two-col">
+
+      <div class="ranking-card">
+        <h3>Ranking de Uso por Funcionário</h3>
+        {% if ranking %}
+          {% set max_val = ranking.values() | max %}
+          <div class="rank-list">
+            {% for nome, qtd in ranking.items() %}
+            <div class="rank-item">
+              <div class="rank-pos">{{ loop.index }}</div>
+              <span class="rank-name">{{ nome }}</span>
+              <div class="rank-bar-wrap">
+                <div class="rank-bar-fill" style="width: {{ (qtd / max_val * 100) | int }}%"></div>
+              </div>
+              <span class="rank-count">{{ qtd }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="empty-rank">Nenhuma peça utilizada ainda.</p>
+        {% endif %}
+      </div>
+
+      <div class="chart-card">
+        <h3>Distribuição do Estoque</h3>
+        <div class="donut-wrap">
+          <canvas id="donut" width="160" height="160"></canvas>
+          <div class="donut-legend">
+            <div class="donut-legend-item">
+              <span class="donut-swatch" style="background:#C4864A"></span>
+              Disponíveis — {{ disponiveis }}
+            </div>
+            <div class="donut-legend-item">
+              <span class="donut-swatch" style="background:#5a3c2c"></span>
+              Utilizadas — {{ usados }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ECONOMIA BOX -->
+    <div class="eco-box">
+      <div class="eco-icon">💡</div>
+      <div class="eco-text">
+        <h4>Economia estimada de R$ {{ economia }}</h4>
+        <p>Calculado com base na área total das peças utilizadas × R$ 100/m² (preço referência MDF). As sobras aproveitadas evitam desperdício de material e reduzem custos de produção.</p>
+      </div>
+    </div>
+
+  </div>
 </div>
 
+<script>
+  // Donut chart sem dependências externas
+  const canvas = document.getElementById('donut');
+  const ctx = canvas.getContext('2d');
+  const disp = {{ disponiveis }};
+  const usados = {{ usados }};
+  const total = disp + usados;
+
+  if (total > 0) {
+    const slices = [
+      { value: disp,   color: '#C4864A' },
+      { value: usados, color: '#5a3c2c' },
+    ];
+
+    let start = -Math.PI / 2;
+    const cx = 80, cy = 80, r = 70, inner = 44;
+
+    slices.forEach(s => {
+      const angle = (s.value / total) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, start, start + angle);
+      ctx.closePath();
+      ctx.fillStyle = s.color;
+      ctx.fill();
+      start += angle;
+    });
+
+    // inner circle (donut hole)
+    ctx.beginPath();
+    ctx.arc(cx, cy, inner, 0, Math.PI * 2);
+    ctx.fillStyle = '#1a110d';
+    ctx.fill();
+
+    // center text
+    ctx.fillStyle = '#FDFAF5';
+    ctx.font = 'bold 22px "Playfair Display", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(total, cx, cy - 6);
+    ctx.font = '11px DM Sans, sans-serif';
+    ctx.fillStyle = '#D4C4B0';
+    ctx.fillText('total', cx, cy + 14);
+  } else {
+    ctx.fillStyle = 'rgba(255,255,255,.07)';
+    ctx.beginPath();
+    ctx.arc(80, 80, 70, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#1a110d';
+    ctx.beginPath();
+    ctx.arc(80, 80, 44, 0, Math.PI * 2);
+    ctx.fill();
+  }
+</script>
 </body>
 </html>

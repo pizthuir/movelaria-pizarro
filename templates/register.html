@@ -1,19 +1,248 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
-    <title>Cadastrar</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Criar Conta — Pizarro Movelaria</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream:  #F5F0E8;
+      --wood:   #8B5E3C;
+      --dark:   #1E1410;
+      --accent: #C4864A;
+      --light:  #D4C4B0;
+      --white:  #FDFAF5;
+      --border: rgba(196,134,74,.22);
+    }
+
+    html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--dark); color: var(--cream); overflow: hidden; }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 60% 80% at 20% 50%, #3a2010 0%, transparent 70%),
+        radial-gradient(ellipse 40% 60% at 90% 20%, #2a1a0a 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: repeating-linear-gradient(92deg, transparent 0px, transparent 22px, rgba(139,94,60,.05) 22px, rgba(139,94,60,.05) 23px);
+      pointer-events: none;
+    }
+
+    .page {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    /* LEFT */
+    .brand-panel {
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 4rem 5rem;
+      border-right: 1px solid rgba(196,134,74,.2);
+      animation: fadeLeft .8s ease both;
+      position: relative;
+    }
+
+    .brand-tag { font-size: .7rem; letter-spacing: .25em; text-transform: uppercase; color: var(--accent); margin-bottom: 2.5rem; }
+
+    .brand-name { font-family: 'Playfair Display', serif; font-size: clamp(3rem, 5vw, 5rem); line-height: 1.05; color: var(--white); margin-bottom: .5rem; }
+    .brand-name span { color: var(--accent); }
+
+    .brand-sub { font-size: .85rem; letter-spacing: .12em; text-transform: uppercase; color: var(--light); margin-bottom: 3rem; }
+
+    .brand-divider { width: 48px; height: 2px; background: var(--accent); margin-bottom: 2rem; }
+
+    .steps { display: flex; flex-direction: column; gap: 1.2rem; }
+
+    .step { display: flex; align-items: flex-start; gap: 1rem; }
+
+    .step-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 1px solid var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .72rem; color: var(--accent); flex-shrink: 0;
+    }
+
+    .step-text { font-size: .85rem; color: var(--light); line-height: 1.5; padding-top: .25rem; }
+
+    .corner { position: absolute; bottom: 2.5rem; left: 4rem; width: 60px; height: 60px; border-left: 1px solid rgba(196,134,74,.4); border-bottom: 1px solid rgba(196,134,74,.4); }
+
+    /* RIGHT */
+    .form-panel {
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      padding: 4rem 3rem;
+      animation: fadeRight .8s .15s ease both;
+      position: relative;
+    }
+
+    .dots { position: absolute; top: 2.5rem; right: 2.5rem; display: grid; grid-template-columns: repeat(4, 6px); gap: 6px; opacity: .25; }
+    .dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+    .form-box { width: 100%; max-width: 380px; }
+
+    .form-header { margin-bottom: 2rem; }
+    .form-header h2 { font-family: 'Playfair Display', serif; font-size: 2rem; color: var(--white); margin-bottom: .4rem; }
+    .form-header p { font-size: .85rem; color: var(--light); font-weight: 300; }
+
+    .field { margin-bottom: 1.1rem; }
+    .field label { display: block; font-size: .7rem; letter-spacing: .15em; text-transform: uppercase; color: var(--light); margin-bottom: .4rem; }
+    .field input {
+      width: 100%; padding: .82rem 1rem;
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--white);
+      font-family: 'DM Sans', sans-serif; font-size: .95rem;
+      outline: none;
+      transition: border-color .2s, background .2s, box-shadow .2s;
+    }
+    .field input::placeholder { color: rgba(212,196,176,.3); }
+    .field input:focus { border-color: var(--accent); background: rgba(196,134,74,.07); box-shadow: 0 0 0 3px rgba(196,134,74,.1); }
+
+    .pw-wrap { position: relative; }
+    .pw-toggle { position: absolute; right: .9rem; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--light); opacity: .6; transition: opacity .2s; display: flex; align-items: center; }
+    .pw-toggle:hover { opacity: 1; }
+
+    /* error flash */
+    .flash-error {
+      background: rgba(180,60,60,.15);
+      border: 1px solid rgba(180,60,60,.35);
+      border-radius: 4px;
+      padding: .7rem 1rem;
+      font-size: .82rem;
+      color: #e08080;
+      margin-bottom: 1.2rem;
+    }
+
+    .btn-register {
+      width: 100%; padding: .95rem;
+      background: var(--accent); border: none; border-radius: 4px;
+      color: var(--dark);
+      font-family: 'DM Sans', sans-serif; font-size: .8rem; font-weight: 600;
+      letter-spacing: .13em; text-transform: uppercase;
+      cursor: pointer;
+      transition: background .2s, transform .15s, box-shadow .2s;
+      margin-top: .5rem;
+    }
+    .btn-register:hover { background: #d4935a; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(196,134,74,.3); }
+    .btn-register:active { transform: translateY(0); }
+
+    .login-row { text-align: center; margin-top: 1.75rem; font-size: .83rem; color: var(--light); }
+    .login-row a { color: var(--accent); text-decoration: none; font-weight: 500; transition: opacity .2s; }
+    .login-row a:hover { opacity: .7; }
+
+    @keyframes fadeLeft { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes fadeRight { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+
+    @media (max-width: 700px) {
+      .page { grid-template-columns: 1fr; }
+      .brand-panel { display: none; }
+      .form-panel { padding: 3rem 1.5rem; overflow-y: auto; }
+    }
+  </style>
 </head>
 <body>
+<div class="page">
 
-<h1>Criar Conta</h1>
+  <!-- LEFT -->
+  <div class="brand-panel">
+    <p class="brand-tag">Primeiro acesso</p>
+    <h1 class="brand-name">Pizarro<br><span>Movelaria</span></h1>
+    <p class="brand-sub">Móveis sob medida · Desde 1998</p>
+    <div class="brand-divider"></div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <p class="step-text">Crie sua conta com usuário e senha</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <p class="step-text">Acesse o estoque de sobras em tempo real</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <p class="step-text">Registre o uso de peças com seu nome</p>
+      </div>
+    </div>
+    <div class="corner"></div>
+  </div>
 
-<form method="POST">
-    <input name="user" placeholder="Usuário" required>
-    <input name="senha" type="password" placeholder="Senha" required>
-    <button type="submit">Cadastrar</button>
-</form>
+  <!-- RIGHT -->
+  <div class="form-panel">
+    <div class="dots">
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+    </div>
 
-<a href="/login">Já tenho conta</a>
+    <div class="form-box">
+      <div class="form-header">
+        <h2>Criar Conta</h2>
+        <p>Preencha os dados para se cadastrar</p>
+      </div>
 
+      {% if erro %}
+      <div class="flash-error">{{ erro }}</div>
+      {% endif %}
+
+      <form method="POST">
+        <div class="field">
+          <label for="user">Usuário</label>
+          <input id="user" name="user" type="text" placeholder="Escolha um usuário" autocomplete="username" required/>
+        </div>
+
+        <div class="field">
+          <label for="senha">Senha</label>
+          <div class="pw-wrap">
+            <input id="senha" name="senha" type="password" placeholder="Crie uma senha" autocomplete="new-password" required/>
+            <button type="button" class="pw-toggle" aria-label="Mostrar/ocultar senha" onclick="togglePw('senha', 'eye1')">
+              <svg id="eye1" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="senha2">Confirmar Senha</label>
+          <div class="pw-wrap">
+            <input id="senha2" name="senha2" type="password" placeholder="Repita a senha" autocomplete="new-password" required/>
+            <button type="button" class="pw-toggle" aria-label="Mostrar/ocultar senha" onclick="togglePw('senha2', 'eye2')">
+              <svg id="eye2" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-register">Criar Conta</button>
+      </form>
+
+      <p class="login-row">Já tem conta? <a href="/login">Entrar</a></p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function togglePw(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon  = document.getElementById(iconId);
+    const showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    icon.innerHTML = showing
+      ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
+      : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  }
+</script>
 </body>
 </html>
