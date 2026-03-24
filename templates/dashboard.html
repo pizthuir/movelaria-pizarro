@@ -1,9 +1,25 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
 
-{% block content %}
+<header>
+    <h1>Dashboard</h1>
+</header>
 
-<h1>Dashboard</h1>
+<div class="container">
 
-<img src="/static/grafico.png" width="300">
+    <div class="card">
+        <h2>Peças reutilizadas: {{usados}}</h2>
+    </div>
 
-{% endblock %}
+    <div class="card">
+        <h2>Economia: R$ {{economia}}</h2>
+    </div>
+
+</div>
+
+</body>
+</html>

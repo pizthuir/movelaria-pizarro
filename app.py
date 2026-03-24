@@ -2,7 +2,6 @@ from flask import Flask, render_template, request, redirect, url_for, session
 import pandas as pd
 import os
 import qrcode
-import matplotlib.pyplot as plt
 
 app = Flask(__name__)
 app.secret_key = "pizarro123"
@@ -14,7 +13,6 @@ EXCEL_FILE = "sobras.xlsx"
 USERS_FILE = "usuarios.xlsx"
 QR_FOLDER = "static/qrcodes"
 
-# 🔥 DOMÍNIO ONLINE
 BASE_URL = "https://movelaria-pizarro-production.up.railway.app"
 
 os.makedirs(QR_FOLDER, exist_ok=True)
@@ -122,7 +120,7 @@ def index():
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
         save_data(df)
 
-        # 🔥 QR ONLINE
+        # QR CODE ONLINE
         url = f"{BASE_URL}/sobra/{new_id}"
         qr = qrcode.make(url)
         qr.save(f"{QR_FOLDER}/qr_{new_id}.png")
@@ -132,7 +130,7 @@ def index():
     return render_template("index.html", dados=df.to_dict(orient="records"))
 
 # =========================
-# DETALHE
+# DETALHE (QR)
 # =========================
 @app.route("/sobra/<int:id>")
 def detalhe(id):
@@ -141,34 +139,49 @@ def detalhe(id):
     return render_template("detalhe.html", sobra=sobra)
 
 # =========================
-# USAR
+# USAR (FUNCIONÁRIO)
 # =========================
 @app.route("/usar/<int:id>")
 def usar(id):
+    if "user" not in session:
+        return redirect("/login")
+
     df = load_data()
-    df.loc[df["id"] == id, "usado"] = "SIM"
+
+    # agora salva quem usou
+    df.loc[df["id"] == id, "usado"] = session["user"]
+
     save_data(df)
     return redirect("/")
 
 # =========================
-# DASHBOARD
+# DASHBOARD (ECONOMIA)
 # =========================
 @app.route("/dashboard")
 def dashboard():
     df = load_data()
 
-    usados = len(df[df["usado"] == "SIM"])
-    nao_usados = len(df[df["usado"] == "NÃO"])
+    usados = df[df["usado"] != "NÃO"]
 
-    labels = ["Usados", "Disponíveis"]
-    valores = [usados, nao_usados]
+    # 💰 cálculo de economia
+    preco_mdf_m2 = 100  # você pode alterar depois
+    economia = 0
 
-    plt.figure()
-    plt.pie(valores, labels=labels, autopct='%1.1f%%')
-    plt.savefig("static/grafico.png")
-    plt.close()
+    for _, row in usados.iterrows():
+        try:
+            largura = float(row["largura"])
+            altura = float(row["altura"])
 
-    return render_template("dashboard.html")
+            area = (largura * altura) / 1000000
+            economia += area * preco_mdf_m2
+        except:
+            pass
+
+    return render_template(
+        "dashboard.html",
+        usados=len(usados),
+        economia=round(economia, 2)
+    )
 
 # =========================
 # LOGOUT

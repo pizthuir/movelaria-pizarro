@@ -1,43 +1,46 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pizarro Sistema</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
 
-{% block content %}
+<header>
+    <h1>Movelaria Pizarro</h1>
+</header>
 
-<h2>Cadastro</h2>
+<div class="container">
 
-<form method="POST">
-    <input name="largura" placeholder="Largura" required>
-    <input name="altura" placeholder="Altura" required>
-    <input name="espessura" placeholder="Espessura" required>
-    <input name="cor" placeholder="Cor" required>
-    <input name="obs" placeholder="Observação">
-    <button type="submit">Salvar</button>
-</form>
+    <div class="card">
+        <h3>Nova Sobra</h3>
+        <form method="POST">
+            <input name="largura" placeholder="Largura">
+            <input name="altura" placeholder="Altura">
+            <input name="espessura" placeholder="Espessura">
+            <input name="cor" placeholder="Cor">
+            <input name="obs" placeholder="Observação">
+            <button type="submit">Cadastrar</button>
+        </form>
+    </div>
 
-<h2>Sobras</h2>
+    <h3>Lista de Sobras</h3>
 
-<div class="grid">
-{% for item in dados %}
-<div class="card">
+    {% for item in dados %}
+    <div class="card">
+        <p><b>ID:</b> {{item.id}}</p>
+        <p>{{item.largura}} x {{item.altura}} | {{item.cor}}</p>
+        <p>Status: {{item.usado}}</p>
 
-<b>ID {{item.id}}</b><br>
+        <img class="qr" src="/static/qrcodes/qr_{{item.id}}.png">
 
-{{item.largura}} x {{item.altura}}<br>
-{{item.espessura}}mm<br>
-Cor: {{item.cor}}<br>
-
-{% if item.usado == "SIM" %}
-    <span class="usado">USADO</span><br>
-{% else %}
-    <span class="disponivel">DISPONÍVEL</span><br>
-{% endif %}
-
-<a href="/sobra/{{item.id}}">QR</a><br>
-
-<a href="/usar/{{item.id}}">Usar</a> |
-<a href="/reset/{{item.id}}">Resetar</a>
+        <a href="/usar/{{item.id}}">
+            <button>Marcar como usado</button>
+        </a>
+    </div>
+    {% endfor %}
 
 </div>
-{% endfor %}
-</div>
 
-{% endblock %}
+</body>
+</html>
