@@ -11,7 +11,9 @@ app.secret_key = "pizarro123"
 EXCEL_FILE = "sobras.xlsx"
 USERS_FILE = "usuarios.xlsx"
 QR_FOLDER = "static/qrcodes"
-IP = "10.49.127.167"  # SEU IP
+
+# 🔥 DOMÍNIO ONLINE (RAILWAY)
+BASE_URL = "https://movelaria-pizarro-production.up.railway.app"
 
 os.makedirs(QR_FOLDER, exist_ok=True)
 
@@ -45,7 +47,7 @@ def save_users(df):
     df.to_excel(USERS_FILE, index=False)
 
 # =========================
-# LOGIN (CORRIGIDO)
+# LOGIN
 # =========================
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -54,7 +56,6 @@ def login():
         senha = request.form["senha"].strip()
 
         df_users = load_users()
-
         df_users["user"] = df_users["user"].astype(str).str.strip()
         df_users["senha"] = df_users["senha"].astype(str).str.strip()
 
@@ -119,8 +120,8 @@ def index():
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
         save_data(df)
 
-        # QR CODE COM IP REAL
-        url = f"http://{IP}:5000/sobra/{new_id}"
+        # 🔥 QR CODE ONLINE
+        url = f"{BASE_URL}/sobra/{new_id}"
         qr = qrcode.make(url)
         qr.save(f"{QR_FOLDER}/qr_{new_id}.png")
 
@@ -138,7 +139,7 @@ def detalhe(id):
     return render_template("detalhe.html", sobra=sobra)
 
 # =========================
-# MARCAR COMO USADO
+# USAR
 # =========================
 @app.route("/usar/<int:id>")
 def usar(id):
@@ -176,7 +177,8 @@ def logout():
     return redirect("/login")
 
 # =========================
-# RODAR
+# RAILWAY
 # =========================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
