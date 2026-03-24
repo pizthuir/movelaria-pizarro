@@ -7,18 +7,20 @@ import matplotlib.pyplot as plt
 app = Flask(__name__)
 app.secret_key = "pizarro123"
 
+# =========================
 # CONFIG
+# =========================
 EXCEL_FILE = "sobras.xlsx"
 USERS_FILE = "usuarios.xlsx"
 QR_FOLDER = "static/qrcodes"
 
-# 🔥 DOMÍNIO ONLINE (RAILWAY)
+# 🔥 DOMÍNIO ONLINE
 BASE_URL = "https://movelaria-pizarro-production.up.railway.app"
 
 os.makedirs(QR_FOLDER, exist_ok=True)
 
 # =========================
-# CRIAR ARQUIVOS INICIAIS
+# CRIAR ARQUIVOS
 # =========================
 if not os.path.exists(EXCEL_FILE):
     df = pd.DataFrame(columns=[
@@ -120,7 +122,7 @@ def index():
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
         save_data(df)
 
-        # 🔥 QR CODE ONLINE
+        # 🔥 QR ONLINE
         url = f"{BASE_URL}/sobra/{new_id}"
         qr = qrcode.make(url)
         qr.save(f"{QR_FOLDER}/qr_{new_id}.png")
@@ -130,7 +132,7 @@ def index():
     return render_template("index.html", dados=df.to_dict(orient="records"))
 
 # =========================
-# DETALHE (QR)
+# DETALHE
 # =========================
 @app.route("/sobra/<int:id>")
 def detalhe(id):
@@ -177,7 +179,7 @@ def logout():
     return redirect("/login")
 
 # =========================
-# RAILWAY
+# RUN (RAILWAY)
 # =========================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
