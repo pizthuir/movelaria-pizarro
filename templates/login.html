@@ -23,7 +23,6 @@
       font-family: 'DM Sans', sans-serif;
       background: var(--dark);
       color: var(--cream);
-      overflow: hidden;
     }
 
     /* ── background ── */
@@ -344,6 +343,12 @@
           <h2>Entrar</h2>
           <p>Acesse sua conta para continuar</p>
         </div>
+
+        {% if erro %}
+        <div style="background:rgba(180,60,60,.15);border:1px solid rgba(180,60,60,.35);border-radius:4px;padding:.7rem 1rem;font-size:.82rem;color:#e08080;margin-bottom:1.2rem;">
+          {{ erro }}
+        </div>
+        {% endif %}
 
         <form method="POST">
           <div class="field">

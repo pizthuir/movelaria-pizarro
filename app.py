@@ -12,7 +12,8 @@ app.secret_key = "pizarro123"
 
 # RAILWAY: vá em seu projeto → Add Volume → Mount Path: /data
 # Isso garante que o banco de dados persiste entre deploys e reinicializações.
-DATA_DIR  = os.environ.get("DATA_DIR", "/data")
+IS_RAILWAY = os.environ.get("RAILWAY_ENVIRONMENT") is not None
+DATA_DIR   = "/data" if IS_RAILWAY else os.path.join(os.path.dirname(__file__), "data")
 DB_PATH   = os.path.join(DATA_DIR, "pizarro.db")
 QR_FOLDER = "static/qrcodes"
 
