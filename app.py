@@ -57,8 +57,21 @@ def init_db():
         # Migração: adiciona coluna role se não existir (banco antigo)
         try:
             conn.execute("ALTER TABLE usuarios ADD COLUMN role TEXT NOT NULL DEFAULT 'funcionario'")
+            conn.commit()
         except Exception:
             pass
+
+        # Migração: primeiro usuário cadastrado vira admin se nenhum admin existir
+        try:
+            admins = conn.execute("SELECT COUNT(*) FROM usuarios WHERE role = 'admin'").fetchone()[0]
+            if admins == 0:
+                primeiro = conn.execute("SELECT id FROM usuarios ORDER BY id LIMIT 1").fetchone()
+                if primeiro:
+                    conn.execute("UPDATE usuarios SET role = 'admin' WHERE id = ?", (primeiro[0],))
+                    conn.commit()
+        except Exception:
+            pass
+
         conn.commit()
 
 init_db()
