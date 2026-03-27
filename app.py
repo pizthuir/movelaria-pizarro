@@ -1,7 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, send_file
 import os
+import io
 import sqlite3
 import qrcode
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment
 
 app = Flask(__name__)
 app.secret_key = "pizarro123"
@@ -9,13 +12,10 @@ app.secret_key = "pizarro123"
 # =========================
 # CONFIG
 # =========================
-
-# RAILWAY: vá em seu projeto → Add Volume → Mount Path: /data
-# Isso garante que o banco de dados persiste entre deploys e reinicializações.
 IS_RAILWAY = os.environ.get("RAILWAY_ENVIRONMENT") is not None
 DATA_DIR   = "/data" if IS_RAILWAY else os.path.join(os.path.dirname(__file__), "data")
-DB_PATH   = os.path.join(DATA_DIR, "pizarro.db")
-QR_FOLDER = "static/qrcodes"
+DB_PATH    = os.path.join(DATA_DIR, "pizarro.db")
+QR_FOLDER  = "static/qrcodes"
 
 BASE_URL = os.environ.get(
     "BASE_URL",
@@ -66,7 +66,6 @@ def gerar_qr(item_id):
     qr.save(f"{QR_FOLDER}/qr_{item_id}.png")
 
 def regenerar_todos_qrs():
-    """Regenera QR codes ausentes ao iniciar o servidor."""
     try:
         with get_db() as conn:
             rows = conn.execute("SELECT id FROM sobras").fetchall()
@@ -203,6 +202,145 @@ def usar(id):
                 (session["user"], id)
             )
             conn.commit()
+
+    return redirect(url_for("index"))
+
+# =========================
+# EXPORTAR EXCEL
+# =========================
+@app.route("/exportar")
+def exportar():
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    with get_db() as conn:
+        rows = conn.execute("SELECT * FROM sobras ORDER BY id").fetchall()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Estoque de Sobras"
+
+    # Cabeçalho
+    headers = ["ID", "Largura (mm)", "Altura (mm)", "Espessura", "Cor / Material", "Observação", "Status"]
+    header_fill   = PatternFill("solid", fgColor="2E1F14")
+    header_font   = Font(bold=True, color="C4864A", size=11)
+    header_align  = Alignment(horizontal="center", vertical="center")
+
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.fill   = header_fill
+        cell.font   = header_font
+        cell.alignment = header_align
+
+    ws.row_dimensions[1].height = 22
+
+    # Larguras de coluna
+    col_widths = [8, 14, 14, 12, 20, 25, 18]
+    for i, w in enumerate(col_widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+    # Dados
+    fill_disp = PatternFill("solid", fgColor="1a3a25")
+    fill_used = PatternFill("solid", fgColor="2a1a10")
+    font_disp = Font(color="6aab7e")
+    font_used = Font(color="8a6a5a")
+
+    for r, row in enumerate(rows, 2):
+        status = "Disponível" if row["usado"] == "NÃO" else f"Usado por: {row['usado']}"
+        values = [row["id"], row["largura"], row["altura"],
+                  row["espessura"] or "", row["cor"] or "",
+                  row["obs"] or "", status]
+
+        is_disp = row["usado"] == "NÃO"
+        for col, val in enumerate(values, 1):
+            cell = ws.cell(row=r, column=col, value=val)
+            cell.alignment = Alignment(horizontal="center")
+            if col == 7:
+                cell.fill = fill_disp if is_disp else fill_used
+                cell.font = font_disp if is_disp else font_used
+
+    # Aba de modelo para importação
+    ws2 = wb.create_sheet("Modelo Importação")
+    modelo_headers = ["largura", "altura", "espessura", "cor", "obs"]
+    for col, h in enumerate(modelo_headers, 1):
+        cell = ws2.cell(row=1, column=col, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = header_align
+        ws2.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 16
+
+    # Linha de exemplo
+    exemplos = ["600", "1200", "15mm", "Branco Polar", "Sobra lateral"]
+    for col, val in enumerate(exemplos, 1):
+        ws2.cell(row=2, column=col, value=val).alignment = Alignment(horizontal="center")
+
+    ws2.cell(row=4, column=1, value="⚠ Preencha a partir da linha 2. Não altere os cabeçalhos.")
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    return send_file(
+        output,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name="estoque_pizarro.xlsx"
+    )
+
+# =========================
+# IMPORTAR EXCEL
+# =========================
+@app.route("/importar", methods=["POST"])
+def importar():
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    arquivo = request.files.get("planilha")
+    if not arquivo or arquivo.filename == "":
+        return redirect(url_for("index"))
+
+    try:
+        wb = openpyxl.load_workbook(arquivo)
+
+        # Aceita tanto a aba "Modelo Importação" quanto a primeira aba
+        if "Modelo Importação" in wb.sheetnames:
+            ws = wb["Modelo Importação"]
+        else:
+            ws = wb.active
+
+        importados = 0
+        erros = 0
+
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            # Pula linhas vazias ou de aviso
+            if not row[0] and not row[1]:
+                continue
+            try:
+                largura   = str(row[0]).strip() if row[0] else ""
+                altura    = str(row[1]).strip() if row[1] else ""
+                espessura = str(row[2]).strip() if row[2] else ""
+                cor       = str(row[3]).strip() if row[3] else ""
+                obs       = str(row[4]).strip() if row[4] else ""
+
+                if not largura or not altura:
+                    continue
+
+                with get_db() as conn:
+                    cursor = conn.execute(
+                        """INSERT INTO sobras (largura, altura, espessura, cor, obs, usado)
+                           VALUES (?, ?, ?, ?, ?, 'NÃO')""",
+                        (largura, altura, espessura, cor, obs)
+                    )
+                    conn.commit()
+                    gerar_qr(cursor.lastrowid)
+                    importados += 1
+
+            except Exception:
+                erros += 1
+                continue
+
+    except Exception:
+        return redirect(url_for("index"))
 
     return redirect(url_for("index"))
 

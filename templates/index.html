@@ -514,6 +514,7 @@
       .grid { grid-template-columns: 1fr; }
       .header-tag { display: none; }
     }
+    .nav-lnk{font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;color:var(--light);text-decoration:none;transition:color .2s;}.nav-lnk:hover{color:var(--accent);}.nav-lnk-out{border:1px solid rgba(196,134,74,.3);padding:.3rem .75rem;border-radius:20px;}.nav-lnk-out:hover{border-color:var(--accent);}
   </style>
 </head>
 <body>
@@ -527,7 +528,7 @@
     </div>
     <div class="header-right">
       <span class="header-tag">Estoque Inteligente</span>
-      <span class="header-user">Olá, usuário ↗</span>
+      <a href="/dashboard" class="nav-lnk">Dashboard</a><a href="/logout" class="nav-lnk nav-lnk-out">Sair</a><span class="header-user">Olá, {{ user }}</span>
     </div>
   </header>
 
@@ -582,6 +583,31 @@
           <div class="num muted" id="cnt-used">—</div>
           <div class="lbl">Utilizadas</div>
         </div>
+      </div>
+
+      <!-- importar / exportar -->
+      <div style="margin-top:1rem;">
+        <p class="section-label" style="margin-bottom:.75rem;">Planilha Excel</p>
+
+        <!-- Exportar -->
+        <a href="/exportar" style="display:block;width:100%;padding:.75rem;margin-bottom:.6rem;background:transparent;border:1px solid rgba(196,134,74,.35);border-radius:4px;color:var(--accent);font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;text-align:center;text-decoration:none;transition:all .2s;"
+           onmouseover="this.style.background='rgba(196,134,74,.1)'" onmouseout="this.style.background='transparent'">
+          ↓ Exportar Estoque (.xlsx)
+        </a>
+
+        <!-- Importar -->
+        <form method="POST" action="/importar" enctype="multipart/form-data">
+          <label for="planilha" style="display:block;width:100%;padding:.75rem;background:var(--accent);border:none;border-radius:4px;color:var(--dark);font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;text-align:center;cursor:pointer;transition:background .2s;"
+                 onmouseover="this.style.background='#d4935a'" onmouseout="this.style.background='var(--accent)'">
+            ↑ Importar Planilha
+          </label>
+          <input id="planilha" name="planilha" type="file" accept=".xlsx,.xls,.csv" style="display:none;"
+                 onchange="this.form.submit()"/>
+        </form>
+
+        <p style="font-size:.68rem;color:var(--light);opacity:.5;text-align:center;margin-top:.5rem;line-height:1.5;">
+          Exporte para ver o modelo.<br>Preencha e importe de volta.
+        </p>
       </div>
     </aside>
 
