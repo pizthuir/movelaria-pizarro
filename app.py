@@ -50,16 +50,50 @@ def init_db():
             CREATE TABLE IF NOT EXISTS usuarios (
                 id    INTEGER PRIMARY KEY AUTOINCREMENT,
                 user  TEXT UNIQUE NOT NULL,
-                senha TEXT NOT NULL
+                senha TEXT NOT NULL,
+                role  TEXT NOT NULL DEFAULT 'funcionario'
             )
         """)
+        # Migração: adiciona coluna role se não existir (banco antigo)
+        try:
+            conn.execute("ALTER TABLE usuarios ADD COLUMN role TEXT NOT NULL DEFAULT 'funcionario'")
+        except Exception:
+            pass
         conn.commit()
 
 init_db()
 
 # =========================
-# HELPERS QR
+# HELPERS
 # =========================
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def is_admin():
+    return session.get("role") == "admin"
+
+def requer_login(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user" not in session:
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
+
+def requer_admin(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user" not in session:
+            return redirect(url_for("login"))
+        if not is_admin():
+            return redirect(url_for("index"))
+        return f(*args, **kwargs)
+    return decorated
+
 def gerar_qr(item_id):
     url = f"{BASE_URL}/sobra/{item_id}"
     qr = qrcode.make(url)
@@ -70,8 +104,7 @@ def regenerar_todos_qrs():
         with get_db() as conn:
             rows = conn.execute("SELECT id FROM sobras").fetchall()
         for row in rows:
-            qr_path = f"{QR_FOLDER}/qr_{row['id']}.png"
-            if not os.path.exists(qr_path):
+            if not os.path.exists(f"{QR_FOLDER}/qr_{row['id']}.png"):
                 gerar_qr(row["id"])
     except Exception:
         pass
@@ -99,6 +132,7 @@ def login():
 
         if row:
             session["user"] = user
+            session["role"] = row["role"]
             return redirect(url_for("index"))
         else:
             erro = "Usuário ou senha incorretos."
@@ -123,9 +157,12 @@ def register():
         else:
             try:
                 with get_db() as conn:
+                    # Primeiro usuário vira admin automaticamente
+                    total = conn.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0]
+                    role  = "admin" if total == 0 else "funcionario"
                     conn.execute(
-                        "INSERT INTO usuarios (user, senha) VALUES (?, ?)",
-                        (user, senha)
+                        "INSERT INTO usuarios (user, senha, role) VALUES (?, ?, ?)",
+                        (user, senha, role)
                     )
                     conn.commit()
                 return redirect(url_for("login"))
@@ -138,11 +175,9 @@ def register():
 # HOME — ESTOQUE
 # =========================
 @app.route("/", methods=["GET", "POST"])
+@requer_login
 def index():
-    if "user" not in session:
-        return redirect(url_for("login"))
-
-    if request.method == "POST":
+    if request.method == "POST" and is_admin():
         largura   = request.form.get("largura",   "").strip()
         altura    = request.form.get("altura",    "").strip()
         espessura = request.form.get("espessura", "").strip()
@@ -152,14 +187,11 @@ def index():
         if largura and altura:
             with get_db() as conn:
                 cursor = conn.execute(
-                    """INSERT INTO sobras (largura, altura, espessura, cor, obs, usado)
-                       VALUES (?, ?, ?, ?, ?, 'NÃO')""",
+                    "INSERT INTO sobras (largura, altura, espessura, cor, obs, usado) VALUES (?, ?, ?, ?, ?, 'NÃO')",
                     (largura, altura, espessura, cor, obs)
                 )
                 conn.commit()
-                new_id = cursor.lastrowid
-
-            gerar_qr(new_id)
+                gerar_qr(cursor.lastrowid)
 
         return redirect(url_for("index"))
 
@@ -167,7 +199,7 @@ def index():
         rows = conn.execute("SELECT * FROM sobras ORDER BY id DESC").fetchall()
 
     dados = [dict(row) for row in rows]
-    return render_template("index.html", dados=dados, user=session["user"])
+    return render_template("index.html", dados=dados, user=session["user"], admin=is_admin())
 
 # =========================
 # DETALHE (via QR Code)
@@ -186,133 +218,118 @@ def detalhe(id):
 # USAR PEÇA
 # =========================
 @app.route("/usar/<int:id>")
+@requer_login
 def usar(id):
-    if "user" not in session:
-        return redirect(url_for("login"))
-
     with get_db() as conn:
         row = conn.execute("SELECT * FROM sobras WHERE id = ?", (id,)).fetchone()
-
         if not row:
             return "Peça não encontrada.", 404
-
         if row["usado"] == "NÃO":
-            conn.execute(
-                "UPDATE sobras SET usado = ? WHERE id = ?",
-                (session["user"], id)
-            )
+            conn.execute("UPDATE sobras SET usado = ? WHERE id = ?", (session["user"], id))
             conn.commit()
 
     return redirect(url_for("index"))
 
 # =========================
-# EXPORTAR EXCEL
+# REATIVAR PEÇA (admin)
+# =========================
+@app.route("/reativar/<int:id>")
+@requer_admin
+def reativar(id):
+    with get_db() as conn:
+        conn.execute("UPDATE sobras SET usado = 'NÃO' WHERE id = ?", (id,))
+        conn.commit()
+    return redirect(url_for("index"))
+
+# =========================
+# DELETAR PEÇA (admin)
+# =========================
+@app.route("/deletar/<int:id>")
+@requer_admin
+def deletar(id):
+    with get_db() as conn:
+        conn.execute("DELETE FROM sobras WHERE id = ?", (id,))
+        conn.commit()
+    qr_path = f"{QR_FOLDER}/qr_{id}.png"
+    if os.path.exists(qr_path):
+        os.remove(qr_path)
+    return redirect(url_for("index"))
+
+# =========================
+# EXPORTAR EXCEL (admin)
 # =========================
 @app.route("/exportar")
+@requer_admin
 def exportar():
-    if "user" not in session:
-        return redirect(url_for("login"))
-
     with get_db() as conn:
         rows = conn.execute("SELECT * FROM sobras ORDER BY id").fetchall()
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
+    wb  = openpyxl.Workbook()
+    ws  = wb.active
     ws.title = "Estoque de Sobras"
 
-    # Cabeçalho
-    headers = ["ID", "Largura (mm)", "Altura (mm)", "Espessura", "Cor / Material", "Observação", "Status"]
-    header_fill   = PatternFill("solid", fgColor="2E1F14")
-    header_font   = Font(bold=True, color="C4864A", size=11)
-    header_align  = Alignment(horizontal="center", vertical="center")
+    hfill = PatternFill("solid", fgColor="2E1F14")
+    hfont = Font(bold=True, color="C4864A", size=11)
+    halign = Alignment(horizontal="center", vertical="center")
 
+    headers = ["ID", "Largura (mm)", "Altura (mm)", "Espessura", "Cor / Material", "Observação", "Status"]
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=h)
-        cell.fill   = header_fill
-        cell.font   = header_font
-        cell.alignment = header_align
+        cell.fill = hfill; cell.font = hfont; cell.alignment = halign
 
     ws.row_dimensions[1].height = 22
-
-    # Larguras de coluna
-    col_widths = [8, 14, 14, 12, 20, 25, 18]
-    for i, w in enumerate(col_widths, 1):
+    for i, w in enumerate([8,14,14,12,20,25,18], 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
 
-    # Dados
-    fill_disp = PatternFill("solid", fgColor="1a3a25")
-    fill_used = PatternFill("solid", fgColor="2a1a10")
-    font_disp = Font(color="6aab7e")
-    font_used = Font(color="8a6a5a")
+    fill_d = PatternFill("solid", fgColor="1a3a25")
+    fill_u = PatternFill("solid", fgColor="2a1a10")
+    font_d = Font(color="6aab7e")
+    font_u = Font(color="8a6a5a")
 
     for r, row in enumerate(rows, 2):
         status = "Disponível" if row["usado"] == "NÃO" else f"Usado por: {row['usado']}"
         values = [row["id"], row["largura"], row["altura"],
-                  row["espessura"] or "", row["cor"] or "",
-                  row["obs"] or "", status]
-
-        is_disp = row["usado"] == "NÃO"
+                  row["espessura"] or "", row["cor"] or "", row["obs"] or "", status]
+        disp = row["usado"] == "NÃO"
         for col, val in enumerate(values, 1):
             cell = ws.cell(row=r, column=col, value=val)
             cell.alignment = Alignment(horizontal="center")
             if col == 7:
-                cell.fill = fill_disp if is_disp else fill_used
-                cell.font = font_disp if is_disp else font_used
+                cell.fill = fill_d if disp else fill_u
+                cell.font = font_d if disp else font_u
 
-    # Aba de modelo para importação
+    # Aba modelo
     ws2 = wb.create_sheet("Modelo Importação")
-    modelo_headers = ["largura", "altura", "espessura", "cor", "obs"]
-    for col, h in enumerate(modelo_headers, 1):
+    for col, h in enumerate(["largura","altura","espessura","cor","obs"], 1):
         cell = ws2.cell(row=1, column=col, value=h)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = header_align
+        cell.fill = hfill; cell.font = hfont; cell.alignment = halign
         ws2.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 16
-
-    # Linha de exemplo
-    exemplos = ["600", "1200", "15mm", "Branco Polar", "Sobra lateral"]
-    for col, val in enumerate(exemplos, 1):
+    for col, val in enumerate(["600","1200","15mm","Branco Polar","Sobra lateral"], 1):
         ws2.cell(row=2, column=col, value=val).alignment = Alignment(horizontal="center")
-
     ws2.cell(row=4, column=1, value="⚠ Preencha a partir da linha 2. Não altere os cabeçalhos.")
 
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
-
-    return send_file(
-        output,
+    return send_file(output,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        as_attachment=True,
-        download_name="estoque_pizarro.xlsx"
-    )
+        as_attachment=True, download_name="estoque_pizarro.xlsx")
 
 # =========================
-# IMPORTAR EXCEL
+# IMPORTAR EXCEL (admin)
 # =========================
 @app.route("/importar", methods=["POST"])
+@requer_admin
 def importar():
-    if "user" not in session:
-        return redirect(url_for("login"))
-
     arquivo = request.files.get("planilha")
     if not arquivo or arquivo.filename == "":
         return redirect(url_for("index"))
 
     try:
         wb = openpyxl.load_workbook(arquivo)
-
-        # Aceita tanto a aba "Modelo Importação" quanto a primeira aba
-        if "Modelo Importação" in wb.sheetnames:
-            ws = wb["Modelo Importação"]
-        else:
-            ws = wb.active
-
-        importados = 0
-        erros = 0
+        ws = wb["Modelo Importação"] if "Modelo Importação" in wb.sheetnames else wb.active
 
         for row in ws.iter_rows(min_row=2, values_only=True):
-            # Pula linhas vazias ou de aviso
             if not row[0] and not row[1]:
                 continue
             try:
@@ -321,80 +338,95 @@ def importar():
                 espessura = str(row[2]).strip() if row[2] else ""
                 cor       = str(row[3]).strip() if row[3] else ""
                 obs       = str(row[4]).strip() if row[4] else ""
-
                 if not largura or not altura:
                     continue
-
                 with get_db() as conn:
                     cursor = conn.execute(
-                        """INSERT INTO sobras (largura, altura, espessura, cor, obs, usado)
-                           VALUES (?, ?, ?, ?, ?, 'NÃO')""",
+                        "INSERT INTO sobras (largura, altura, espessura, cor, obs, usado) VALUES (?, ?, ?, ?, ?, 'NÃO')",
                         (largura, altura, espessura, cor, obs)
                     )
                     conn.commit()
                     gerar_qr(cursor.lastrowid)
-                    importados += 1
-
             except Exception:
-                erros += 1
                 continue
-
     except Exception:
-        return redirect(url_for("index"))
+        pass
 
     return redirect(url_for("index"))
 
 # =========================
-# DASHBOARD
+# GERENCIAR USUÁRIOS (admin)
+# =========================
+@app.route("/usuarios")
+@requer_admin
+def usuarios():
+    with get_db() as conn:
+        rows = conn.execute("SELECT id, user, role FROM usuarios ORDER BY role, user").fetchall()
+    return render_template("usuarios.html", usuarios=[dict(r) for r in rows], user=session["user"])
+
+@app.route("/usuarios/promover/<int:id>")
+@requer_admin
+def promover(id):
+    with get_db() as conn:
+        conn.execute("UPDATE usuarios SET role = 'admin' WHERE id = ?", (id,))
+        conn.commit()
+    return redirect(url_for("usuarios"))
+
+@app.route("/usuarios/rebaixar/<int:id>")
+@requer_admin
+def rebaixar(id):
+    with get_db() as conn:
+        # Não pode rebaixar a si mesmo
+        row = conn.execute("SELECT user FROM usuarios WHERE id = ?", (id,)).fetchone()
+        if row and row["user"] != session["user"]:
+            conn.execute("UPDATE usuarios SET role = 'funcionario' WHERE id = ?", (id,))
+            conn.commit()
+    return redirect(url_for("usuarios"))
+
+@app.route("/usuarios/deletar/<int:id>")
+@requer_admin
+def deletar_usuario(id):
+    with get_db() as conn:
+        row = conn.execute("SELECT user FROM usuarios WHERE id = ?", (id,)).fetchone()
+        if row and row["user"] != session["user"]:
+            conn.execute("DELETE FROM usuarios WHERE id = ?", (id,))
+            conn.commit()
+    return redirect(url_for("usuarios"))
+
+# =========================
+# DASHBOARD (admin)
 # =========================
 @app.route("/dashboard")
+@requer_admin
 def dashboard():
-    if "user" not in session:
-        return redirect(url_for("login"))
-
     with get_db() as conn:
         total       = conn.execute("SELECT COUNT(*) FROM sobras").fetchone()[0]
         usados      = conn.execute("SELECT COUNT(*) FROM sobras WHERE usado != 'NÃO'").fetchone()[0]
         disponiveis = total - usados
-
-        usados_rows = conn.execute(
-            "SELECT largura, altura, usado FROM sobras WHERE usado != 'NÃO'"
-        ).fetchall()
-
+        usados_rows = conn.execute("SELECT largura, altura FROM sobras WHERE usado != 'NÃO'").fetchall()
         ranking_rows = conn.execute(
-            """SELECT usado, COUNT(*) as total FROM sobras
-               WHERE usado != 'NÃO'
-               GROUP BY usado ORDER BY total DESC"""
+            "SELECT usado, COUNT(*) as total FROM sobras WHERE usado != 'NÃO' GROUP BY usado ORDER BY total DESC"
         ).fetchall()
 
-    PRECO_M2 = 100
-    economia = 0.0
-    for row in usados_rows:
-        try:
-            area = (float(row["largura"]) * float(row["altura"])) / 1_000_000
-            economia += area * PRECO_M2
-        except (ValueError, TypeError):
-            pass
-
-    porcentagem = round(usados / total * 100, 1) if total > 0 else 0
-    ranking = {row["usado"]: row["total"] for row in ranking_rows}
-
-    return render_template(
-        "dashboard.html",
-        usados=usados,
-        disponiveis=disponiveis,
-        economia=round(economia, 2),
-        porcentagem=porcentagem,
-        ranking=ranking,
-        user=session["user"]
+    economia = sum(
+        (float(r["largura"]) * float(r["altura"])) / 1_000_000 * 100
+        for r in usados_rows
+        if r["largura"] and r["altura"]
     )
+
+    return render_template("dashboard.html",
+        usados=usados, disponiveis=disponiveis,
+        economia=round(economia, 2),
+        porcentagem=round(usados / total * 100, 1) if total > 0 else 0,
+        ranking={r["usado"]: r["total"] for r in ranking_rows},
+        user=session["user"])
 
 # =========================
 # LOGOUT
 # =========================
 @app.route("/logout")
 def logout():
-    session.pop("user", None)
+    session.clear()
     return redirect(url_for("login"))
 
 # =========================

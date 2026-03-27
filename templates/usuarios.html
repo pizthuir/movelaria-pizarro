@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Usuários — Pizarro Movelaria</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream:  #F5F0E8; --dark: #1E1410; --accent: #C4864A;
+      --light:  #D4C4B0; --white: #FDFAF5; --success: #6aab7e;
+      --used:   #8a6a5a; --border: rgba(196,134,74,.18); --card-bg: rgba(255,255,255,.04);
+    }
+
+    body { font-family: 'DM Sans', sans-serif; background: var(--dark); color: var(--cream); min-height: 100vh; }
+
+    body::before { content:''; position:fixed; inset:0;
+      background: radial-gradient(ellipse 55% 60% at 90% 10%, #3a200e44 0%, transparent 70%),
+                  radial-gradient(ellipse 40% 50% at 5% 90%, #2a160844 0%, transparent 60%);
+      pointer-events:none; }
+
+    body::after { content:''; position:fixed; inset:0;
+      background-image: repeating-linear-gradient(91deg, transparent 0, transparent 22px, rgba(139,94,60,.05) 22px, rgba(139,94,60,.05) 23px);
+      pointer-events:none; }
+
+    .wrap { position:relative; z-index:1; }
+
+    header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:1.4rem 3rem; border-bottom:1px solid var(--border);
+      background:rgba(30,20,16,.7); backdrop-filter:blur(8px);
+      position:sticky; top:0; z-index:100;
+    }
+
+    .brand { font-family:'Playfair Display',serif; font-size:1.45rem; color:var(--white); }
+    .brand span { color:var(--accent); }
+    .brand small { font-size:.68rem; letter-spacing:.18em; text-transform:uppercase; color:var(--light); opacity:.7; margin-left:.7rem; }
+
+    .nav { display:flex; align-items:center; gap:1.5rem; }
+    .nav a { font-size:.75rem; letter-spacing:.12em; text-transform:uppercase; color:var(--light); text-decoration:none; transition:color .2s; }
+    .nav a:hover { color:var(--accent); }
+    .nav a.out { border:1px solid var(--border); padding:.35rem .85rem; border-radius:20px; }
+    .nav a.out:hover { border-color:var(--accent); }
+
+    .main { max-width:900px; margin:0 auto; padding:2.5rem 3rem 4rem; }
+
+    .page-title { font-family:'Playfair Display',serif; font-size:2rem; color:var(--white); margin-bottom:.4rem; }
+    .page-sub { font-size:.82rem; color:var(--light); opacity:.6; margin-bottom:2.5rem; }
+
+    .section-label { font-size:.68rem; letter-spacing:.2em; text-transform:uppercase; color:var(--accent); margin-bottom:1rem; }
+
+    /* tabela */
+    .table-wrap {
+      background:var(--card-bg); border:1px solid var(--border); border-radius:8px; overflow:hidden;
+    }
+
+    table { width:100%; border-collapse:collapse; }
+
+    thead tr { background:rgba(196,134,74,.08); }
+
+    th {
+      font-size:.68rem; letter-spacing:.15em; text-transform:uppercase;
+      color:var(--accent); padding:1rem 1.25rem; text-align:left; font-weight:500;
+      border-bottom:1px solid var(--border);
+    }
+
+    td { padding:.9rem 1.25rem; font-size:.88rem; border-bottom:1px solid rgba(196,134,74,.08); }
+
+    tr:last-child td { border-bottom:none; }
+
+    tr:hover td { background:rgba(255,255,255,.02); }
+
+    .badge-role {
+      font-size:.65rem; letter-spacing:.12em; text-transform:uppercase;
+      padding:.25rem .7rem; border-radius:20px; font-weight:600;
+    }
+
+    .badge-role.admin {
+      background:rgba(196,134,74,.15); color:var(--accent); border:1px solid rgba(196,134,74,.3);
+    }
+
+    .badge-role.func {
+      background:rgba(212,196,176,.07); color:var(--light); border:1px solid rgba(212,196,176,.15);
+    }
+
+    .you { font-size:.65rem; color:var(--light); opacity:.4; margin-left:.4rem; }
+
+    .actions { display:flex; gap:.5rem; }
+
+    .btn-sm {
+      font-size:.68rem; letter-spacing:.1em; text-transform:uppercase;
+      padding:.3rem .75rem; border-radius:4px; text-decoration:none;
+      font-weight:500; transition:all .2s; white-space:nowrap;
+    }
+
+    .btn-promote { background:rgba(106,171,126,.12); color:var(--success); border:1px solid rgba(106,171,126,.3); }
+    .btn-promote:hover { background:rgba(106,171,126,.25); }
+
+    .btn-demote { background:rgba(196,134,74,.1); color:var(--accent); border:1px solid rgba(196,134,74,.25); }
+    .btn-demote:hover { background:rgba(196,134,74,.2); }
+
+    .btn-del { background:rgba(180,60,60,.1); color:#e08080; border:1px solid rgba(180,60,60,.25); }
+    .btn-del:hover { background:rgba(180,60,60,.2); }
+
+    .empty { text-align:center; padding:3rem; color:var(--light); opacity:.4; font-size:.88rem; }
+
+    @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+    .main { animation:fadeUp .5s ease both; }
+
+    @media(max-width:700px) {
+      .main { padding:1.5rem; }
+      header { padding:1rem 1.5rem; }
+      .actions { flex-direction:column; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <span class="brand">Pizarro <span>Movelaria</span><small>Gerenciar Usuários</small></span>
+    </div>
+    <nav class="nav">
+      <a href="/">Estoque</a>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/logout" class="out">Sair</a>
+    </nav>
+  </header>
+
+  <div class="main">
+    <h2 class="page-title">Usuários do Sistema</h2>
+    <p class="page-sub">Gerencie quem tem acesso e os níveis de permissão.</p>
+
+    <!-- ADMINS -->
+    <p class="section-label">Administradores</p>
+    <div class="table-wrap" style="margin-bottom:1.5rem;">
+      <table>
+        <thead>
+          <tr>
+            <th>Usuário</th>
+            <th>Nível</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in usuarios if u.role == 'admin' %}
+          <tr>
+            <td>
+              {{ u.user }}
+              {% if u.user == user %}<span class="you">(você)</span>{% endif %}
+            </td>
+            <td><span class="badge-role admin">Admin</span></td>
+            <td>
+              <div class="actions">
+                {% if u.user != user %}
+                  <a href="/usuarios/rebaixar/{{ u.id }}" class="btn-sm btn-demote">→ Funcionário</a>
+                  <a href="/usuarios/deletar/{{ u.id }}" class="btn-sm btn-del"
+                     onclick="return confirm('Remover {{ u.user }}?')">Remover</a>
+                {% else %}
+                  <span style="font-size:.75rem;color:var(--light);opacity:.4;">Sua conta</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="empty">Nenhum admin.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- FUNCIONÁRIOS -->
+    <p class="section-label">Funcionários</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Usuário</th>
+            <th>Nível</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in usuarios if u.role == 'funcionario' %}
+          <tr>
+            <td>{{ u.user }}</td>
+            <td><span class="badge-role func">Funcionário</span></td>
+            <td>
+              <div class="actions">
+                <a href="/usuarios/promover/{{ u.id }}" class="btn-sm btn-promote">→ Admin</a>
+                <a href="/usuarios/deletar/{{ u.id }}" class="btn-sm btn-del"
+                   onclick="return confirm('Remover {{ u.user }}?')">Remover</a>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="empty">Nenhum funcionário cadastrado ainda.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <p style="font-size:.75rem;color:var(--light);opacity:.5;margin-top:1.25rem;text-align:center;">
+      Novos usuários se cadastram em <strong>/register</strong> e entram como Funcionário por padrão.
+    </p>
+  </div>
+
+</div>
+</body>
+</html>
